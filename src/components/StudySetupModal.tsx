@@ -15,7 +15,7 @@ import {
   InfiniteCard,
   GroupedCard,
 } from "@/lib/studyTypes";
-import { getSession, saveSession, clearSession } from "@/lib/storage";
+import { getSession, saveSession, clearSession } from "@/lib/hybridStorage";
 import { shuffleCards, chunkCards } from "@/lib/studyUtils";
 
 interface StudySetupModalProps {

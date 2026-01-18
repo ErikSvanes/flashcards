@@ -4,7 +4,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { StandardSession, StandardCard } from "@/lib/studyTypes";
-import { saveSession, clearSession } from "@/lib/storage";
+import { saveSession, clearSession } from "@/lib/hybridStorage";
 import FlashcardStudyCard from "./FlashcardStudyCard";
 
 interface StandardModeProps {
@@ -128,6 +128,8 @@ export default function StandardMode({
         <FlashcardStudyCard
           term={currentCard.term}
           definition={currentCard.definition}
+          termImage={currentCard.termImage}
+          definitionImage={currentCard.definitionImage}
           isMarkdown={currentCard.isMarkdown}
           flipped={currentCard.flipped}
           onFlip={flipCard}

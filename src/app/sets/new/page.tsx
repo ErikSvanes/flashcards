@@ -2,26 +2,21 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { getSets, saveSets, Set } from "@/lib/storage";
-import { v4 as uuidv4 } from "uuid";
+import { useRouter, useSearchParams } from "next/navigation";
+import { addSet } from "@/lib/hybridStorage";
 
 export default function NewSetPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const parentId = searchParams.get("parentId") || null;
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const sets = getSets();
-    const newSet: Set = {
-      id: uuidv4(),
-      name,
-      description,
-      cards: [],
-    };
-    saveSets([...sets, newSet]);
-    router.push("/"); // Go back to home after saving
+    await addSet(name, parentId, description);
+    // Redirect to parent folder or root
+    router.push(parentId ? `/?folderId=${parentId}` : "/");
   };
 
   return (

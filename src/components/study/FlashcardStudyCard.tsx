@@ -4,10 +4,13 @@
 import { useState, useEffect } from "react";
 import { CardOrientation } from "@/lib/studyTypes";
 import MarkdownDisplay from "@/components/MarkdownDisplay";
+import ImageModal from "@/components/ImageModal";
 
 interface FlashcardStudyCardProps {
   term: string;
   definition: string;
+  termImage?: string;
+  definitionImage?: string;
   isMarkdown?: boolean;
   flipped: boolean;
   onFlip: () => void;
@@ -17,6 +20,8 @@ interface FlashcardStudyCardProps {
 export default function FlashcardStudyCard({
   term,
   definition,
+  termImage,
+  definitionImage,
   isMarkdown = false,
   flipped,
   onFlip,
@@ -24,6 +29,7 @@ export default function FlashcardStudyCard({
 }: FlashcardStudyCardProps) {
   const [isFlipping, setIsFlipping] = useState(false);
   const [mouseDownPos, setMouseDownPos] = useState<{ x: number; y: number } | null>(null);
+  const [modalImage, setModalImage] = useState<{ url: string; alt: string } | null>(null);
 
   // Track when flip animation is happening
   useEffect(() => {
@@ -57,6 +63,7 @@ export default function FlashcardStudyCard({
     (orientation === "definition-first" && flipped);
 
   const displayText = showingTerm ? term : definition;
+  const displayImage = showingTerm ? termImage : definitionImage;
   const label = showingTerm ? "Term" : "Definition";
 
   return (
@@ -80,21 +87,42 @@ export default function FlashcardStudyCard({
           }}
         >
           <p className="text-sm text-gray-500 mb-2">{label}</p>
-          <div className="flex-1 overflow-y-auto w-full flex items-start justify-center py-4">
-            {isMarkdown && !showingTerm ? (
-              <MarkdownDisplay
-                content={displayText}
-                className="text-2xl font-medium"
+          <div className="flex-1 overflow-y-auto w-full flex flex-col items-center justify-start py-4 gap-4">
+            {displayImage && (
+              <img
+                src={displayImage}
+                alt={label}
+                className="max-w-full max-h-64 object-contain rounded shadow-md cursor-pointer hover:opacity-80 transition"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setModalImage({ url: displayImage, alt: label });
+                }}
               />
-            ) : (
-              <p className="text-left text-2xl text-black font-medium whitespace-pre-line">
-                {displayText}
-              </p>
             )}
+            <div className="flex items-start justify-center w-full">
+              {isMarkdown && !showingTerm ? (
+                <MarkdownDisplay
+                  content={displayText}
+                  className="text-2xl font-medium"
+                />
+              ) : (
+                <p className="text-left text-2xl text-black font-medium whitespace-pre-line">
+                  {displayText}
+                </p>
+              )}
+            </div>
           </div>
           <p className="text-xs text-gray-400 mt-4">Click to flip</p>
         </div>
       </div>
+
+      {/* Image Modal */}
+      <ImageModal
+        open={!!modalImage}
+        onClose={() => setModalImage(null)}
+        imageUrl={modalImage?.url || ""}
+        alt={modalImage?.alt}
+      />
     </div>
   );
 }

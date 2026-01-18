@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getSession } from "@/lib/storage";
+import { getSession } from "@/lib/hybridStorage";
 import { StudySession } from "@/lib/studyTypes";
 import StandardMode from "./study/StandardMode";
 import InfiniteMode from "./study/InfiniteMode";

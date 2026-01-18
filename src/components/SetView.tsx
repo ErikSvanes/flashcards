@@ -3,10 +3,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getSets, Set } from "@/lib/storage";
+import { Set } from "@/lib/storage";
+import { getSets } from "@/lib/hybridStorage";
 import CardManager from "@/components/CardManager";
 import ImportModal from "./ImportModal";
 import StudySetupModal from "./StudySetupModal";
+import Breadcrumbs from "./Breadcrumbs";
 
 export default function SetView({ setId }: { setId: string }) {
   const router = useRouter();
@@ -16,23 +18,29 @@ export default function SetView({ setId }: { setId: string }) {
   const [showStudySetup, setShowStudySetup] = useState(false);
 
   useEffect(() => {
-    const sets = getSets();
-    const currentSet = sets.find((s) => s.id === setId);
-    if (!currentSet) router.push("/");
-    else {
-      setSet(currentSet);
-      setAllSets(sets);
-    }
+    getSets().then((sets) => {
+      const currentSet = sets.find((s) => s.id === setId);
+      if (!currentSet) router.push("/");
+      else {
+        setSet(currentSet);
+        setAllSets(sets);
+      }
+    });
   }, [setId, router]);
 
   if (!set) return <p>Loading...</p>;
 
+  const backUrl = set.parentId ? `/?folderId=${set.parentId}` : "/";
+
   return (
     <div>
+      {/* Breadcrumbs showing folder path */}
+      <Breadcrumbs currentFolderId={set.parentId} className="mb-4" />
+
       <header className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => router.push("/")}
+            onClick={() => router.push(backUrl)}
             className="px-3 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition"
           >
             ← Back

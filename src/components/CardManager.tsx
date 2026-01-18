@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Set, addCard, editCard, deleteCard, clearSession } from "@/lib/storage";
+import { Set } from "@/lib/storage";
+import { addCard, editCard, deleteCard, clearSession } from "@/lib/hybridStorage";
+import { uploadCardImage, deleteCardImage } from "@/lib/imageUpload";
 import FlashcardEntry, {UpdateButton} from "./FlashcardEntry";
 
 interface CardManagerProps {
@@ -14,15 +16,16 @@ export default function CardManager({ set, setSet }: CardManagerProps) {
   const [newDefinition, setNewDefinition] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [focusCard, setFocusCard] = useState<{ cardId: string; field: "term" | "definition" } | null>(null);
+  const [uploadingImages, setUploadingImages] = useState<Record<string, "term" | "definition" | undefined>>({});
 
-  const handleAddCard = (field: "term" | "definition", value: string) => {
+  const handleAddCard = async (field: "term" | "definition", value: string) => {
     console.log(`adding field '${field}' value '${value}'`);
 
     let newCard;
     if (field === "term") {
-      newCard = addCard(set.id, value, "");
+      newCard = await addCard(set.id, value, "");
     } else if (field === "definition") {
-      newCard = addCard(set.id, "", value);
+      newCard = await addCard(set.id, "", value);
     }
     if (!newCard) return;
 
@@ -42,7 +45,7 @@ export default function CardManager({ set, setSet }: CardManagerProps) {
     setError(null);
   };
 
-  const handleUpdateCard = (
+  const handleUpdateCard = async (
     cardId: string,
     field: "term" | "definition",
     value: string
@@ -51,43 +54,127 @@ export default function CardManager({ set, setSet }: CardManagerProps) {
       ...set.cards.find((c) => c.id === cardId)!,
       [field]: value,
     };
-    editCard(set.id, updatedCard);
 
-    // Invalidate any existing session since cards changed
-    clearSession(set.id);
-
+    // Update UI immediately (optimistic update)
     setSet({
       ...set,
       cards: set.cards.map((c) => (c.id === cardId ? updatedCard : c)),
     });
+
+    // Invalidate any existing session since cards changed
+    clearSession(set.id);
+
+    // Sync in background
+    editCard(set.id, updatedCard);
   };
 
-  const handleToggleMarkdown = (cardId: string, isMarkdown: boolean) => {
+  const handleToggleMarkdown = async (cardId: string, isMarkdown: boolean) => {
     const updatedCard = {
       ...set.cards.find((c) => c.id === cardId)!,
       isMarkdown,
     };
-    editCard(set.id, updatedCard);
 
-    // Invalidate any existing session since cards changed
-    clearSession(set.id);
-
+    // Update UI immediately (optimistic update)
     setSet({
       ...set,
       cards: set.cards.map((c) => (c.id === cardId ? updatedCard : c)),
     });
-  };
-
-  const handleDeleteCard = (cardId: string) => {
-    deleteCard(set.id, cardId);
 
     // Invalidate any existing session since cards changed
     clearSession(set.id);
 
+    // Sync in background
+    editCard(set.id, updatedCard);
+  };
+
+  const handleDeleteCard = async (cardId: string) => {
+    // Update UI immediately (optimistic update)
     setSet({
       ...set,
       cards: set.cards.filter((c) => c.id !== cardId),
     });
+
+    // Invalidate any existing session since cards changed
+    clearSession(set.id);
+
+    // Sync in background
+    deleteCard(set.id, cardId);
+  };
+
+  const handleImageUpload = async (cardId: string, field: "term" | "definition", file: File) => {
+    // Set uploading state
+    setUploadingImages(prev => ({ ...prev, [cardId]: field }));
+
+    try {
+      // Upload image
+      const result = await uploadCardImage(file, cardId, field);
+
+      if (result.error) {
+        console.error('Image upload failed:', result.error);
+        alert(`Failed to upload image: ${result.error}`);
+        return;
+      }
+
+      // Update card with image URL
+      const card = set.cards.find(c => c.id === cardId);
+      if (!card) return;
+
+      const updatedCard = {
+        ...card,
+        [field === "term" ? "termImage" : "definitionImage"]: result.url,
+      };
+
+      // Update UI immediately
+      setSet({
+        ...set,
+        cards: set.cards.map(c => c.id === cardId ? updatedCard : c),
+      });
+
+      // Invalidate session
+      clearSession(set.id);
+
+      // Sync in background
+      editCard(set.id, updatedCard);
+    } catch (error) {
+      console.error('Image upload error:', error);
+      alert('Failed to upload image');
+    } finally {
+      // Clear uploading state
+      setUploadingImages(prev => ({ ...prev, [cardId]: undefined }));
+    }
+  };
+
+  const handleImageRemove = async (cardId: string, field: "term" | "definition") => {
+    const card = set.cards.find(c => c.id === cardId);
+    if (!card) return;
+
+    const imageUrl = field === "term" ? card.termImage : card.definitionImage;
+    if (!imageUrl) return;
+
+    // Delete from storage
+    const result = await deleteCardImage(imageUrl);
+    if (!result.success) {
+      console.error('Failed to delete image:', result.error);
+      // Continue anyway to remove from card
+    }
+
+    // Update card to remove image URL
+    const updatedCard = {
+      ...card,
+      [field === "term" ? "termImage" : "definitionImage"]: undefined,
+    };
+
+    // Update UI immediately
+    setSet({
+      ...set,
+      cards: set.cards.map(c => c.id === cardId ? updatedCard : c),
+    });
+
+    // Invalidate session
+    clearSession(set.id);
+
+    // Sync in background
+    editCard(set.id, updatedCard);
   };
 
   return (
@@ -107,6 +194,8 @@ export default function CardManager({ set, setSet }: CardManagerProps) {
             key={card.id}
             term={card.term}
             definition={card.definition}
+            termImage={card.termImage}
+            definitionImage={card.definitionImage}
             isMarkdown={card.isMarkdown}
             onChange={(field: "term" | "definition", value: string) => {
               handleUpdateCard(card.id, field, value);
@@ -115,10 +204,13 @@ export default function CardManager({ set, setSet }: CardManagerProps) {
                 setFocusCard(null);
               }
             }}
+            onImageUpload={(field, file) => handleImageUpload(card.id, field, file)}
+            onImageRemove={(field) => handleImageRemove(card.id, field)}
             onMarkdownToggle={(isMarkdown) => handleToggleMarkdown(card.id, isMarkdown)}
             updateButton={deleteButton}
             readonly={false}
             autoFocusField={focusCard?.cardId === card.id ? focusCard.field : undefined}
+            uploadingField={uploadingImages[card.id]}
           />
         );
       })}

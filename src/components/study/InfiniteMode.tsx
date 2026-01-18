@@ -4,7 +4,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { InfiniteSession } from "@/lib/studyTypes";
-import { saveSession, clearSession } from "@/lib/storage";
+import { saveSession, clearSession } from "@/lib/hybridStorage";
 import { selectWeightedCard } from "@/lib/studyUtils";
 import FlashcardStudyCard from "./FlashcardStudyCard";
 
@@ -123,6 +123,8 @@ export default function InfiniteMode({
         <FlashcardStudyCard
           term={currentCard.term}
           definition={currentCard.definition}
+          termImage={currentCard.termImage}
+          definitionImage={currentCard.definitionImage}
           isMarkdown={currentCard.isMarkdown}
           flipped={currentCard.flipped}
           onFlip={flipCard}

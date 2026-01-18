@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, Set, saveSets, clearSession } from "@/lib/storage";
+import { Card, Set } from "@/lib/storage";
+import { addCard, clearSession } from "@/lib/hybridStorage";
 import EditableCardRow from "./FlashcardEntry";
 
 interface ImportModalProps {
@@ -53,16 +54,20 @@ export default function ImportModal({
     setParsedCards(newCards);
   }, [input, delimiter, customDelimiter]);
 
-  const handleImport = () => {
+  const handleImport = async () => {
+    // Add each card individually using the hybrid storage
+    const addedCards: Card[] = [];
+    for (const card of parsedCards) {
+      const newCard = await addCard(targetSet.id, card.term, card.definition);
+      if (newCard) {
+        addedCards.push(newCard);
+      }
+    }
+
     const newSet: Set = {
       ...targetSet,
-      cards: [...targetSet.cards, ...parsedCards],
+      cards: [...targetSet.cards, ...addedCards],
     };
-    const sets = JSON.parse(localStorage.getItem("flashcards_sets") || "[]");
-    const updatedSets = sets.map((s: Set) =>
-      s.id === targetSet.id ? newSet : s
-    );
-    saveSets(updatedSets);
 
     // Invalidate any existing session since cards changed
     clearSession(targetSet.id);
